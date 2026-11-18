@@ -3,8 +3,7 @@ export interface IRepository {
   repo: string;
 }
 
-// owner: alphanumerics and hyphens; repo: alphanumerics, hyphens, underscores, and dots
-const REPOSITORY_PATTERN = /^([A-Za-z0-9-]+)\/([A-Za-z0-9._-]+)$/;
+const REPOSITORY_PATTERN = /^([^/\s]+)\/([^/\s]+)$/;
 
 export function parseRepository(repository: string): IRepository {
   const match = REPOSITORY_PATTERN.exec(repository);

@@ -1086,8 +1086,8 @@ export class IssuesProcessor {
 
     if (
       pullRequest.head.repo === null ||
-      pullRequest.head.repo.full_name ===
-        `${this._repository.owner}/${this._repository.repo}`
+      pullRequest.head.repo.full_name.toLowerCase() ===
+        `${this._repository.owner}/${this._repository.repo}`.toLowerCase()
     ) {
       issueLogger.info(
         `Deleting the branch "${LoggerService.cyan(branch)}" from closed $$type`

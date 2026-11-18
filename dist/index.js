@@ -51816,8 +51816,7 @@ function getSortField(sortOption) {
 }
 
 ;// CONCATENATED MODULE: ./lib/functions/parse-repository.js
-// owner: alphanumerics and hyphens; repo: alphanumerics, hyphens, underscores, and dots
-const REPOSITORY_PATTERN = /^([A-Za-z0-9-]+)\/([A-Za-z0-9._-]+)$/;
+const REPOSITORY_PATTERN = /^([^/\s]+)\/([^/\s]+)$/;
 function parseRepository(repository) {
     const match = REPOSITORY_PATTERN.exec(repository);
     if (!match || match[2] === '.' || match[2] === '..') {
@@ -52469,8 +52468,8 @@ class IssuesProcessor {
         }
         const branch = pullRequest.head.ref;
         if (pullRequest.head.repo === null ||
-            pullRequest.head.repo.full_name ===
-                `${this._repository.owner}/${this._repository.repo}`) {
+            pullRequest.head.repo.full_name.toLowerCase() ===
+                `${this._repository.owner}/${this._repository.repo}`.toLowerCase()) {
             issueLogger.info(`Deleting the branch "${LoggerService.cyan(branch)}" from closed $$type`);
             try {
                 this._consumeIssueOperation(issue);
@@ -106742,7 +106741,7 @@ const getCacheKey = (repository, current = github_context.repo) => {
         repo.toLowerCase() === current.repo.toLowerCase()) {
         return CACHE_KEY;
     }
-    return `${CACHE_KEY}_${owner}_${repo}`.toLowerCase();
+    return `${CACHE_KEY}_${owner}/${repo}`.toLowerCase();
 };
 const mkTempDir = () => {
     const tmpDir = external_path_.join(external_os_.tmpdir(), STALE_DIR);
@@ -106764,16 +106763,17 @@ const getOctokitClient = () => {
 const checkIfCacheExists = async (cacheKey) => {
     const client = getOctokitClient();
     try {
-        const cachesResult = await client.rest.actions.getActionsCacheList({
+        // the key is matched as a prefix, so page through all results
+        const caches = await client.paginate(client.rest.actions.getActionsCacheList, {
             owner: github_context.repo.owner,
             repo: github_context.repo.repo,
-            key: cacheKey // prefix matching
+            key: cacheKey,
+            per_page: 100
         });
-        const caches = cachesResult.data['actions_caches'] || [];
         return caches.some(cache => cache['key'] === cacheKey);
     }
     catch (error) {
-        core_debug(`Error checking if cache exist: ${error.message}`);
+        warning(`Error checking if cache exist: ${error.message}`);
     }
     return false;
 };
@@ -106799,7 +106799,7 @@ const resetCacheWithOctokit = async (cacheKey) => {
 class StateCacheStorage {
     cacheKey;
     constructor(repository) {
-        this.cacheKey = repository ? getCacheKey(repository) : CACHE_KEY;
+        this.cacheKey = getCacheKey(repository);
     }
     async save(serializedState) {
         const tmpDir = mkTempDir();

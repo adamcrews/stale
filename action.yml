@@ -7,7 +7,7 @@ inputs:
     required: false
     default: ${{ github.token }}
   repository:
-    description: 'The repository to process, in `owner/repo` form. The token must have issues, pull-requests, and contents (for delete-branch) access to it. Defaults to the repository the workflow runs in.'
+    description: 'The repository to process, in `owner/repo` form. The token must have issues, pull-requests, and contents (for delete-branch) access to it, and `actions: write` on the repository the workflow runs in, where the state cache is stored. Defaults to the repository the workflow runs in.'
     required: false
     default: ${{ github.repository }}
   stale-issue-message:

@@ -25,7 +25,7 @@ export const getCacheKey = (
   ) {
     return CACHE_KEY;
   }
-  return `${CACHE_KEY}_${owner}_${repo}`.toLowerCase();
+  return `${CACHE_KEY}_${owner}/${repo}`.toLowerCase();
 };
 
 const mkTempDir = (): string => {
@@ -50,16 +50,19 @@ const getOctokitClient = () => {
 const checkIfCacheExists = async (cacheKey: string): Promise<boolean> => {
   const client = getOctokitClient();
   try {
-    const cachesResult = await client.rest.actions.getActionsCacheList({
-      owner: context.repo.owner,
-      repo: context.repo.repo,
-      key: cacheKey // prefix matching
-    });
-    const caches: Array<{key?: string}> =
-      cachesResult.data['actions_caches'] || [];
+    // the key is matched as a prefix, so page through all results
+    const caches: Array<{key?: string}> = await client.paginate(
+      client.rest.actions.getActionsCacheList,
+      {
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        key: cacheKey,
+        per_page: 100
+      }
+    );
     return caches.some(cache => cache['key'] === cacheKey);
   } catch (error) {
-    core.debug(`Error checking if cache exist: ${error.message}`);
+    core.warning(`Error checking if cache exist: ${error.message}`);
   }
   return false;
 };
@@ -87,8 +90,8 @@ const resetCacheWithOctokit = async (cacheKey: string): Promise<void> => {
 export class StateCacheStorage implements IStateStorage {
   private readonly cacheKey: string;
 
-  constructor(repository?: string) {
-    this.cacheKey = repository ? getCacheKey(repository) : CACHE_KEY;
+  constructor(repository: string) {
+    this.cacheKey = getCacheKey(repository);
   }
 
   async save(serializedState: string): Promise<void> {
