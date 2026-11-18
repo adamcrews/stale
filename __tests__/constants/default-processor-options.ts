@@ -4,6 +4,7 @@ import {IIssuesProcessorOptions} from '../../src/interfaces/issues-processor-opt
 // Mirrors the defaults defined in action.yml
 export const DefaultProcessorOptions: IIssuesProcessorOptions = Object.freeze({
   repoToken: 'none',
+  repository: 'actions/stale',
   staleIssueMessage: 'This issue is stale',
   stalePrMessage: 'This PR is stale',
   closeIssueMessage: 'This issue is being closed',

@@ -6,6 +6,10 @@ inputs:
     description: 'Token for the repository. Can be passed in using `{{ secrets.GITHUB_TOKEN }}`.'
     required: false
     default: ${{ github.token }}
+  repository:
+    description: 'The repository to process, in `owner/repo` form. The token must have issues, pull-requests, and contents (for delete-branch) access to it. Defaults to the repository the workflow runs in.'
+    required: false
+    default: ${{ github.repository }}
   stale-issue-message:
     description: 'The message to post on the issue when tagging it. If none provided, will not mark issues stale.'
     required: false

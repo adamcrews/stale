@@ -2,6 +2,7 @@ import {IsoOrRfcDateString} from '../types/iso-or-rfc-date-string.js';
 
 export interface IIssuesProcessorOptions {
   repoToken: string;
+  repository: string;
   staleIssueMessage: string;
   stalePrMessage: string;
   closeIssueMessage: string;

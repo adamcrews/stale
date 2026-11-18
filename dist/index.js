@@ -51815,7 +51815,19 @@ function getSortField(sortOption) {
             : 'created';
 }
 
+;// CONCATENATED MODULE: ./lib/functions/parse-repository.js
+// owner: alphanumerics and hyphens; repo: alphanumerics, hyphens, underscores, and dots
+const REPOSITORY_PATTERN = /^([A-Za-z0-9-]+)\/([A-Za-z0-9._-]+)$/;
+function parseRepository(repository) {
+    const match = REPOSITORY_PATTERN.exec(repository);
+    if (!match || match[2] === '.' || match[2] === '..') {
+        throw new Error(`Invalid repository "${repository}": expected the "owner/repo" format`);
+    }
+    return { owner: match[1], repo: match[2] };
+}
+
 ;// CONCATENATED MODULE: ./lib/classes/issues-processor.js
+
 
 
 
@@ -51862,6 +51874,7 @@ class IssuesProcessor {
     operations;
     client;
     options;
+    _repository;
     staleIssues = [];
     closedIssues = [];
     deletedBranchIssues = [];
@@ -51873,6 +51886,7 @@ class IssuesProcessor {
     state;
     constructor(options, state) {
         this.options = options;
+        this._repository = parseRepository(options.repository);
         this.state = state;
         this.client = getOctokit(this.options.repoToken, undefined, retry);
         this.operations = new StaleOperations(this.options);
@@ -52143,8 +52157,8 @@ class IssuesProcessor {
             this._consumeIssueOperation(issue);
             this.statistics?.incrementFetchedItemsCommentsCount();
             const comments = await this.client.rest.issues.listComments({
-                owner: github_context.repo.owner,
-                repo: github_context.repo.repo,
+                owner: this._repository.owner,
+                repo: this._repository.repo,
                 issue_number: issue.number,
                 since: sinceDate
             });
@@ -52160,8 +52174,8 @@ class IssuesProcessor {
         try {
             this.operations.consumeOperation();
             const issueResult = await this.client.rest.issues.listForRepo({
-                owner: github_context.repo.owner,
-                repo: github_context.repo.repo,
+                owner: this._repository.owner,
+                repo: this._repository.repo,
                 state: 'open',
                 per_page: 100,
                 direction: this.options.ascending ? 'asc' : 'desc',
@@ -52185,8 +52199,8 @@ class IssuesProcessor {
         this._consumeIssueOperation(issue);
         this.statistics?.incrementFetchedItemsEventsCount();
         const options = this.client.rest.issues.listEvents.endpoint.merge({
-            owner: github_context.repo.owner,
-            repo: github_context.repo.repo,
+            owner: this._repository.owner,
+            repo: this._repository.repo,
             per_page: 100,
             issue_number: issue.number
         });
@@ -52230,8 +52244,8 @@ class IssuesProcessor {
             this._consumeIssueOperation(issue);
             this.statistics?.incrementFetchedPullRequestsCount();
             const pullRequest = await this.client.rest.pulls.get({
-                owner: github_context.repo.owner,
-                repo: github_context.repo.repo,
+                owner: this._repository.owner,
+                repo: this._repository.repo,
                 pull_number: issue.number
             });
             return pullRequest.data;
@@ -52355,8 +52369,8 @@ class IssuesProcessor {
                 this.statistics?.incrementAddedItemsComment(issue);
                 if (!this.options.debugOnly) {
                     await this.client.rest.issues.createComment({
-                        owner: github_context.repo.owner,
-                        repo: github_context.repo.repo,
+                        owner: this._repository.owner,
+                        repo: this._repository.repo,
                         issue_number: issue.number,
                         body: staleMessage
                     });
@@ -52372,8 +52386,8 @@ class IssuesProcessor {
             this.statistics?.incrementStaleItemsCount(issue);
             if (!this.options.debugOnly) {
                 await this.client.rest.issues.addLabels({
-                    owner: github_context.repo.owner,
-                    repo: github_context.repo.repo,
+                    owner: this._repository.owner,
+                    repo: this._repository.repo,
                     issue_number: issue.number,
                     labels: [staleLabel]
                 });
@@ -52395,8 +52409,8 @@ class IssuesProcessor {
                 this.addedCloseCommentIssues.push(issue);
                 if (!this.options.debugOnly) {
                     await this.client.rest.issues.createComment({
-                        owner: github_context.repo.owner,
-                        repo: github_context.repo.repo,
+                        owner: this._repository.owner,
+                        repo: this._repository.repo,
                         issue_number: issue.number,
                         body: closeMessage
                     });
@@ -52412,8 +52426,8 @@ class IssuesProcessor {
                 this.statistics?.incrementAddedItemsLabel(issue);
                 if (!this.options.debugOnly) {
                     await this.client.rest.issues.addLabels({
-                        owner: github_context.repo.owner,
-                        repo: github_context.repo.repo,
+                        owner: this._repository.owner,
+                        repo: this._repository.repo,
                         issue_number: issue.number,
                         labels: [closeLabel]
                     });
@@ -52428,8 +52442,8 @@ class IssuesProcessor {
             this.statistics?.incrementClosedItemsCount(issue);
             if (!this.options.debugOnly) {
                 await this.client.rest.issues.update({
-                    owner: github_context.repo.owner,
-                    repo: github_context.repo.repo,
+                    owner: this._repository.owner,
+                    repo: this._repository.repo,
                     issue_number: issue.number,
                     state: 'closed',
                     state_reason: (this.options.closeIssueReason || undefined)
@@ -52456,15 +52470,15 @@ class IssuesProcessor {
         const branch = pullRequest.head.ref;
         if (pullRequest.head.repo === null ||
             pullRequest.head.repo.full_name ===
-                `${github_context.repo.owner}/${github_context.repo.repo}`) {
+                `${this._repository.owner}/${this._repository.repo}`) {
             issueLogger.info(`Deleting the branch "${LoggerService.cyan(branch)}" from closed $$type`);
             try {
                 this._consumeIssueOperation(issue);
                 this.statistics?.incrementDeletedBranchesCount();
                 if (!this.options.debugOnly) {
                     await this.client.rest.git.deleteRef({
-                        owner: github_context.repo.owner,
-                        repo: github_context.repo.repo,
+                        owner: this._repository.owner,
+                        repo: this._repository.repo,
                         ref: `heads/${branch}`
                     });
                 }
@@ -52487,8 +52501,8 @@ class IssuesProcessor {
             this.statistics?.incrementDeletedItemsLabelsCount(issue);
             if (!this.options.debugOnly) {
                 await this.client.rest.issues.removeLabel({
-                    owner: github_context.repo.owner,
-                    repo: github_context.repo.repo,
+                    owner: this._repository.owner,
+                    repo: this._repository.repo,
                     issue_number: issue.number,
                     name: label
                 });
@@ -52582,8 +52596,8 @@ class IssuesProcessor {
             this.statistics?.incrementAddedItemsLabel(issue);
             if (!this.options.debugOnly) {
                 await this.client.rest.issues.addLabels({
-                    owner: github_context.repo.owner,
-                    repo: github_context.repo.repo,
+                    owner: this._repository.owner,
+                    repo: this._repository.repo,
                     issue_number: issue.number,
                     labels: labelsToAdd
                 });
@@ -106716,9 +106730,20 @@ function saveCacheV2(paths_1, key_1, options_1) {
 
 
 
+
 const CACHE_KEY = '_state';
 const STATE_FILE = 'state.txt';
 const STALE_DIR = '56acbeaa-1fef-4c79-8f84-7565e560fb03';
+// Keep the historical key for the workflow's own repository; otherwise scope
+// it to the target so runs against different repositories don't overwrite each other.
+const getCacheKey = (repository, current = github_context.repo) => {
+    const { owner, repo } = parseRepository(repository);
+    if (owner.toLowerCase() === current.owner.toLowerCase() &&
+        repo.toLowerCase() === current.repo.toLowerCase()) {
+        return CACHE_KEY;
+    }
+    return `${CACHE_KEY}_${owner}_${repo}`.toLowerCase();
+};
 const mkTempDir = () => {
     const tmpDir = external_path_.join(external_os_.tmpdir(), STALE_DIR);
     external_fs_namespaceObject.mkdirSync(tmpDir, { recursive: true });
@@ -106772,21 +106797,25 @@ const resetCacheWithOctokit = async (cacheKey) => {
     }
 };
 class StateCacheStorage {
+    cacheKey;
+    constructor(repository) {
+        this.cacheKey = repository ? getCacheKey(repository) : CACHE_KEY;
+    }
     async save(serializedState) {
         const tmpDir = mkTempDir();
         const filePath = external_path_.join(tmpDir, STATE_FILE);
         external_fs_namespaceObject.writeFileSync(filePath, serializedState);
         try {
-            const cacheExists = await checkIfCacheExists(CACHE_KEY);
+            const cacheExists = await checkIfCacheExists(this.cacheKey);
             if (cacheExists) {
-                await resetCacheWithOctokit(CACHE_KEY);
+                await resetCacheWithOctokit(this.cacheKey);
             }
             const fileSize = external_fs_namespaceObject.statSync(filePath).size;
             if (fileSize === 0) {
                 info(`the state will be removed`);
                 return;
             }
-            await cache_saveCache([external_path_.dirname(filePath)], CACHE_KEY);
+            await cache_saveCache([external_path_.dirname(filePath)], this.cacheKey);
         }
         catch (error) {
             warning(`Saving the state was not successful due to "${error.message || 'unknown reason'}"`);
@@ -106800,12 +106829,12 @@ class StateCacheStorage {
         const filePath = external_path_.join(tmpDir, STATE_FILE);
         unlinkSafely(filePath);
         try {
-            const cacheExists = await checkIfCacheExists(CACHE_KEY);
+            const cacheExists = await checkIfCacheExists(this.cacheKey);
             if (!cacheExists) {
                 info('The saved state was not found, the process starts from the first issue.');
                 return '';
             }
-            await restoreCache([external_path_.dirname(filePath)], CACHE_KEY);
+            await restoreCache([external_path_.dirname(filePath)], this.cacheKey);
             if (!external_fs_namespaceObject.existsSync(filePath)) {
                 warning('Unknown error when unpacking the cache, the process starts from the first issue.');
                 return '';
@@ -106825,11 +106854,12 @@ class StateCacheStorage {
 
 
 const getStateInstance = (options) => {
-    const storage = new StateCacheStorage();
+    const storage = new StateCacheStorage(options.repository);
     return new State(storage, options);
 };
 
 ;// CONCATENATED MODULE: ./lib/main.js
+
 
 
 
@@ -106863,6 +106893,7 @@ async function _run() {
 function _getAndValidateArgs() {
     const args = {
         repoToken: getInput('repo-token'),
+        repository: getInput('repository', { required: true }),
         staleIssueMessage: getInput('stale-issue-message'),
         stalePrMessage: getInput('stale-pr-message'),
         closeIssueMessage: getInput('close-issue-message'),
@@ -106951,6 +106982,7 @@ function _getAndValidateArgs() {
         setFailed(errorMessage);
         throw new Error(errorMessage);
     }
+    parseRepository(args.repository); // fail early on a malformed value
     return args;
 }
 async function processOutput(staledIssues, closedIssues) {

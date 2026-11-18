@@ -57,6 +57,7 @@ Every argument is optional.
 | Input                                                               | Description                                                                 | Default               |
 | ------------------------------------------------------------------- | --------------------------------------------------------------------------- | --------------------- |
 | [repo-token](#repo-token)                                           | PAT for GitHub API authentication                                           | `${{ github.token }}` |
+| [repository](#repository)                                           | Repository to process, in `owner/repo` form                                 | `${{ github.repository }}` |
 | [days-before-stale](#days-before-stale)                             | Idle number of days before marking issues/PRs stale                         | `60`                  |
 | [days-before-issue-stale](#days-before-issue-stale)                 | Override [days-before-stale](#days-before-stale) for issues only            |                       |
 | [days-before-pr-stale](#days-before-pr-stale)                       | Override [days-before-stale](#days-before-stale) for PRs only               |                       |
@@ -128,6 +129,15 @@ Personal Access Token (PAT) that allows the stale workflow to authenticate and p
 Under the hood, it uses the [@actions/github](https://www.npmjs.com/package/@actions/github) package.
 
 Default value: `${{ github.token }}`
+
+#### repository
+
+The repository whose issues and pull requests are processed, in `owner/repo` form.  
+The token in [repo-token](#repo-token) must have issues, pull-requests, and contents (needed by [delete-branch](#delete-branch)) access to that repository; the default `${{ github.token }}` only has access to the repository the workflow runs in, so use a PAT or a GitHub App token to target another repository.
+
+The saved [state](#statefulness) is kept under a key that includes the target repository (the legacy key is kept when the target is the workflow's own repository), so one workflow can process several repositories without them overwriting each other's state. The state cache itself is stored in the repository the workflow runs in.
+
+Default value: `${{ github.repository }}`
 
 #### days-before-stale
 
@@ -803,6 +813,36 @@ jobs:
       - uses: actions/stale@v10
         with:
           exempt-all-pr-assignees: true
+```
+
+### Process several repositories from one workflow
+
+Use a matrix and a GitHub App token that is installed on every target repository:
+
+```yaml
+name: 'Close stale issues and PRs'
+on:
+  schedule:
+    - cron: '30 1 * * *'
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        repository: [my-org/repo-a, my-org/repo-b]
+    steps:
+      - uses: actions/create-github-app-token@v2
+        id: app-token
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: my-org
+          repositories: repo-a,repo-b
+      - uses: actions/stale@v10
+        with:
+          repo-token: ${{ steps.app-token.outputs.token }}
+          repository: ${{ matrix.repository }}
 ```
 
 ### Debugging
