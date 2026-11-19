@@ -83,6 +83,15 @@ describe('StateCacheStorage', () => {
     );
   });
 
+  it('warns when restoreCache finds nothing', async () => {
+    restoreCache.mockImplementation(async () => undefined);
+    const core = await import('@actions/core');
+    expect(await new StateCacheStorage('other-org/other-repo').restore()).toBe(
+      ''
+    );
+    expect(core.warning).toHaveBeenCalled();
+  });
+
   it('keeps the legacy key for the running repository', async () => {
     paginate.mockImplementation(async () => [{key: '_state'}]);
     await new StateCacheStorage('run-owner/run-repo').save('state');

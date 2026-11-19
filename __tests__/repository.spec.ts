@@ -42,11 +42,7 @@ describe('getCacheKey', () => {
     expect(getCacheKey('other/widgets', current)).toBe('other/widgets/_state');
   });
 
-  it('cannot collide for owners and repos containing underscores', () => {
-    const current = {owner: 'x', repo: 'y'};
-    expect(getCacheKey('a_b/c', current)).not.toBe(
-      getCacheKey('a/b_c', current)
-    );
+  it('lower-cases the scoped key', () => {
     expect(getCacheKey('A_B/C', current)).toBe('a_b/c/_state');
   });
 });

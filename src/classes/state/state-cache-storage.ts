@@ -142,7 +142,7 @@ export class StateCacheStorage implements IStateStorage {
         this.cacheKey
       );
       // restoreCache matches by prefix, so only accept the exact key
-      if (restoredKey !== this.cacheKey) {
+      if (restoredKey && restoredKey !== this.cacheKey) {
         core.info(
           'The saved state was not found, the process starts from the first issue.'
         );

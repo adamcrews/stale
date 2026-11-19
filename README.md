@@ -829,6 +829,7 @@ jobs:
   stale:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         repo: [repo-a, repo-b]
     steps:
@@ -842,7 +843,6 @@ jobs:
           repositories: ${{ matrix.repo }},stale-workflows
           permission-issues: write
           permission-pull-requests: write
-          permission-contents: write
           permission-actions: write
       - uses: actions/stale@v11
         with:

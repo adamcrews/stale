@@ -106838,7 +106838,7 @@ class StateCacheStorage {
             }
             const restoredKey = await restoreCache([external_path_.dirname(filePath)], this.cacheKey);
             // restoreCache matches by prefix, so only accept the exact key
-            if (restoredKey !== this.cacheKey) {
+            if (restoredKey && restoredKey !== this.cacheKey) {
                 info('The saved state was not found, the process starts from the first issue.');
                 return '';
             }

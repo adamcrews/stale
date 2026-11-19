@@ -27,4 +27,8 @@ it('falls back to GITHUB_REPOSITORY when the repository input is empty', async (
   process.env.GITHUB_REPOSITORY = 'env-owner/env-repo';
   await import('../src/main.js');
   expect(captured.repository).toBe('env-owner/env-repo');
+  // only the sentinel failure, not a validation error
+  const core = await import('@actions/core');
+  expect(core.setFailed).toHaveBeenCalledTimes(1);
+  expect(core.setFailed).toHaveBeenCalledWith('stop after reading the options');
 });
