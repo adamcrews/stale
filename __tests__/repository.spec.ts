@@ -22,7 +22,9 @@ describe('parseRepository', () => {
     'owner/',
     'ow ner/repo',
     'o/..',
-    'o/.'
+    'o/.',
+    '../repo',
+    'o,x/repo'
   ])('rejects "%s"', value => {
     expect(() => parseRepository(value)).toThrow('"owner/repo"');
   });
@@ -36,8 +38,16 @@ describe('getCacheKey', () => {
   });
 
   it('scopes the key to another repository', () => {
-    expect(getCacheKey('acme/gadgets', current)).toBe('_state_acme/gadgets');
-    expect(getCacheKey('other/widgets', current)).toBe('_state_other/widgets');
+    expect(getCacheKey('acme/gadgets', current)).toBe('acme/gadgets/_state');
+    expect(getCacheKey('other/widgets', current)).toBe('other/widgets/_state');
+  });
+
+  it('cannot collide for owners and repos containing underscores', () => {
+    const current = {owner: 'x', repo: 'y'};
+    expect(getCacheKey('a_b/c', current)).not.toBe(
+      getCacheKey('a/b_c', current)
+    );
+    expect(getCacheKey('A_B/C', current)).toBe('a_b/c/_state');
   });
 });
 
@@ -67,16 +77,6 @@ describe('IssuesProcessor with a non-default repository', () => {
           alwaysFalseStateMock
         )
     ).toThrow('"owner/repo"');
-  });
-});
-
-describe('getCacheKey with underscores and case', () => {
-  it('cannot collide for owners and repos containing underscores', () => {
-    const current = {owner: 'x', repo: 'y'};
-    expect(getCacheKey('a_b/c', current)).not.toBe(
-      getCacheKey('a/b_c', current)
-    );
-    expect(getCacheKey('A_B/C', current)).toBe('_state_a_b/c');
   });
 });
 

@@ -25,7 +25,8 @@ export const getCacheKey = (
   ) {
     return CACHE_KEY;
   }
-  return `${CACHE_KEY}_${owner}/${repo}`.toLowerCase();
+  // prefix-free: cache lookups match keys by prefix
+  return `${owner}/${repo}/${CACHE_KEY}`.toLowerCase();
 };
 
 const mkTempDir = (): string => {
@@ -62,7 +63,7 @@ const checkIfCacheExists = async (cacheKey: string): Promise<boolean> => {
     );
     return caches.some(cache => cache['key'] === cacheKey);
   } catch (error) {
-    core.warning(`Error checking if cache exist: ${error.message}`);
+    core.debug(`Error checking if cache exist: ${error.message}`);
   }
   return false;
 };
@@ -136,7 +137,17 @@ export class StateCacheStorage implements IStateStorage {
         return '';
       }
 
-      await cache.restoreCache([path.dirname(filePath)], this.cacheKey);
+      const restoredKey = await cache.restoreCache(
+        [path.dirname(filePath)],
+        this.cacheKey
+      );
+      // restoreCache matches by prefix, so only accept the exact key
+      if (restoredKey !== this.cacheKey) {
+        core.info(
+          'The saved state was not found, the process starts from the first issue.'
+        );
+        return '';
+      }
 
       if (!fs.existsSync(filePath)) {
         core.warning(

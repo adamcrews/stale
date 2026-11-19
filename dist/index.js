@@ -51816,10 +51816,11 @@ function getSortField(sortOption) {
 }
 
 ;// CONCATENATED MODULE: ./lib/functions/parse-repository.js
-const REPOSITORY_PATTERN = /^([^/\s]+)\/([^/\s]+)$/;
+const REPOSITORY_PATTERN = /^([\w.-]+)\/([\w.-]+)$/;
 function parseRepository(repository) {
     const match = REPOSITORY_PATTERN.exec(repository);
-    if (!match || match[2] === '.' || match[2] === '..') {
+    if (!match ||
+        [match[1], match[2]].some(part => part === '.' || part === '..')) {
         throw new Error(`Invalid repository "${repository}": expected the "owner/repo" format`);
     }
     return { owner: match[1], repo: match[2] };
@@ -106741,7 +106742,8 @@ const getCacheKey = (repository, current = github_context.repo) => {
         repo.toLowerCase() === current.repo.toLowerCase()) {
         return CACHE_KEY;
     }
-    return `${CACHE_KEY}_${owner}/${repo}`.toLowerCase();
+    // prefix-free: cache lookups match keys by prefix
+    return `${owner}/${repo}/${CACHE_KEY}`.toLowerCase();
 };
 const mkTempDir = () => {
     const tmpDir = external_path_.join(external_os_.tmpdir(), STALE_DIR);
@@ -106773,7 +106775,7 @@ const checkIfCacheExists = async (cacheKey) => {
         return caches.some(cache => cache['key'] === cacheKey);
     }
     catch (error) {
-        warning(`Error checking if cache exist: ${error.message}`);
+        core_debug(`Error checking if cache exist: ${error.message}`);
     }
     return false;
 };
@@ -106834,7 +106836,12 @@ class StateCacheStorage {
                 info('The saved state was not found, the process starts from the first issue.');
                 return '';
             }
-            await restoreCache([external_path_.dirname(filePath)], this.cacheKey);
+            const restoredKey = await restoreCache([external_path_.dirname(filePath)], this.cacheKey);
+            // restoreCache matches by prefix, so only accept the exact key
+            if (restoredKey !== this.cacheKey) {
+                info('The saved state was not found, the process starts from the first issue.');
+                return '';
+            }
             if (!external_fs_namespaceObject.existsSync(filePath)) {
                 warning('Unknown error when unpacking the cache, the process starts from the first issue.');
                 return '';
@@ -106859,7 +106866,6 @@ const getStateInstance = (options) => {
 };
 
 ;// CONCATENATED MODULE: ./lib/main.js
-
 
 
 
@@ -106893,7 +106899,7 @@ async function _run() {
 function _getAndValidateArgs() {
     const args = {
         repoToken: getInput('repo-token'),
-        repository: getInput('repository', { required: true }),
+        repository: getInput('repository') || process.env.GITHUB_REPOSITORY || '',
         staleIssueMessage: getInput('stale-issue-message'),
         stalePrMessage: getInput('stale-pr-message'),
         closeIssueMessage: getInput('close-issue-message'),
@@ -106982,7 +106988,6 @@ function _getAndValidateArgs() {
         setFailed(errorMessage);
         throw new Error(errorMessage);
     }
-    parseRepository(args.repository); // fail early on a malformed value
     return args;
 }
 async function processOutput(staledIssues, closedIssues) {

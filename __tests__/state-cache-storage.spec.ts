@@ -1,10 +1,15 @@
 import {beforeEach, describe, expect, it, jest} from '@jest/globals';
 
-const paginate = jest.fn(async (..._args: unknown[]) => [
-  {key: '_state_other-org/other-repo'}
+const KEY = 'other-org/other-repo/_state';
+
+const paginate = jest.fn(async (..._args: unknown[]): Promise<unknown[]> => [
+  {key: KEY}
 ]);
 const deleteActionsCacheByKey = jest.fn(async (..._args: unknown[]) => ({}));
 const getActionsCacheList = jest.fn();
+const restoreCache = jest.fn(
+  async (..._args: unknown[]): Promise<string | undefined> => KEY
+);
 
 jest.unstable_mockModule('@actions/core', () => ({
   debug: jest.fn(),
@@ -21,25 +26,28 @@ jest.unstable_mockModule('@actions/github', () => ({
 }));
 jest.unstable_mockModule('@actions/cache', () => ({
   saveCache: jest.fn(async () => 1),
-  restoreCache: jest.fn(async () => undefined)
+  restoreCache
 }));
 
 const {StateCacheStorage} =
   await import('../src/classes/state/state-cache-storage.js');
 
 describe('StateCacheStorage', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    paginate.mockImplementation(async () => [{key: KEY}]);
+    restoreCache.mockImplementation(async () => KEY);
+  });
 
   it('lists and deletes caches in the running repo with the scoped key', async () => {
-    const storage = new StateCacheStorage('other-org/other-repo');
-    await storage.save('state');
+    await new StateCacheStorage('other-org/other-repo').save('state');
 
     expect(paginate).toHaveBeenCalledWith(
       getActionsCacheList,
       expect.objectContaining({
         owner: 'run-owner',
         repo: 'run-repo',
-        key: '_state_other-org/other-repo',
+        key: KEY,
         per_page: 100
       })
     );
@@ -47,8 +55,39 @@ describe('StateCacheStorage', () => {
       expect.objectContaining({
         owner: 'run-owner',
         repo: 'run-repo',
-        key: '_state_other-org/other-repo'
+        key: KEY
       })
+    );
+  });
+
+  it('ignores prefix-only matches from the cache list', async () => {
+    paginate.mockImplementation(async () => [{key: `${KEY}-2`}]);
+    const storage = new StateCacheStorage('other-org/other-repo');
+
+    await storage.save('state');
+    expect(deleteActionsCacheByKey).not.toHaveBeenCalled();
+
+    expect(await storage.restore()).toBe('');
+    expect(restoreCache).not.toHaveBeenCalled();
+  });
+
+  it('restores with the scoped key', async () => {
+    await new StateCacheStorage('other-org/other-repo').restore();
+    expect(restoreCache).toHaveBeenCalledWith(expect.anything(), KEY);
+  });
+
+  it('treats a restore of a different key as a miss', async () => {
+    restoreCache.mockImplementation(async () => `${KEY}-2`);
+    expect(await new StateCacheStorage('other-org/other-repo').restore()).toBe(
+      ''
+    );
+  });
+
+  it('keeps the legacy key for the running repository', async () => {
+    paginate.mockImplementation(async () => [{key: '_state'}]);
+    await new StateCacheStorage('run-owner/run-repo').save('state');
+    expect(deleteActionsCacheByKey).toHaveBeenCalledWith(
+      expect.objectContaining({key: '_state'})
     );
   });
 });

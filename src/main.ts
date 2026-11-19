@@ -3,7 +3,6 @@ import {IssuesProcessor} from './classes/issues-processor.js';
 import {isValidDate} from './functions/dates/is-valid-date.js';
 import {IIssuesProcessorOptions} from './interfaces/issues-processor-options.js';
 import {Issue} from './classes/issue.js';
-import {parseRepository} from './functions/parse-repository.js';
 import {getStateInstance} from './services/state.service.js';
 
 async function _run(): Promise<void> {
@@ -58,7 +57,8 @@ async function _run(): Promise<void> {
 function _getAndValidateArgs(): IIssuesProcessorOptions {
   const args: IIssuesProcessorOptions = {
     repoToken: core.getInput('repo-token'),
-    repository: core.getInput('repository', {required: true}),
+    repository:
+      core.getInput('repository') || process.env.GITHUB_REPOSITORY || '',
     staleIssueMessage: core.getInput('stale-issue-message'),
     stalePrMessage: core.getInput('stale-pr-message'),
     closeIssueMessage: core.getInput('close-issue-message'),
@@ -166,8 +166,6 @@ function _getAndValidateArgs(): IIssuesProcessorOptions {
     core.setFailed(errorMessage);
     throw new Error(errorMessage);
   }
-
-  parseRepository(args.repository); // fail early on a malformed value
 
   return args;
 }

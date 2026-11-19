@@ -3,11 +3,14 @@ export interface IRepository {
   repo: string;
 }
 
-const REPOSITORY_PATTERN = /^([^/\s]+)\/([^/\s]+)$/;
+const REPOSITORY_PATTERN = /^([\w.-]+)\/([\w.-]+)$/;
 
 export function parseRepository(repository: string): IRepository {
   const match = REPOSITORY_PATTERN.exec(repository);
-  if (!match || match[2] === '.' || match[2] === '..') {
+  if (
+    !match ||
+    [match[1], match[2]].some(part => part === '.' || part === '..')
+  ) {
     throw new Error(
       `Invalid repository "${repository}": expected the "owner/repo" format`
     );

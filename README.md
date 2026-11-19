@@ -137,8 +137,6 @@ The token in [repo-token](#repo-token) must have issues, pull-requests, and cont
 
 The saved [state](#statefulness) is kept under a key that includes the target repository (the legacy key is kept when the target is the workflow's own repository), so one workflow can process several repositories without them overwriting each other's state. The state cache itself is stored in the repository the workflow runs in.
 
-This input is new; it is not available in older releases of the action.
-
 Default value: `${{ github.repository }}`
 
 #### days-before-stale
@@ -832,7 +830,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        repository: [my-org/repo-a, my-org/repo-b]
+        repo: [repo-a, repo-b]
     steps:
       - uses: actions/create-github-app-token@v3
         id: app-token
@@ -840,11 +838,16 @@ jobs:
           client-id: ${{ vars.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
           owner: my-org
-          repositories: repo-a,repo-b,stale-workflows # stale-workflows runs this workflow
+          # the target repository, plus the repository this workflow runs in (state cache)
+          repositories: ${{ matrix.repo }},stale-workflows
+          permission-issues: write
+          permission-pull-requests: write
+          permission-contents: write
+          permission-actions: write
       - uses: actions/stale@v11
         with:
           repo-token: ${{ steps.app-token.outputs.token }}
-          repository: ${{ matrix.repository }}
+          repository: my-org/${{ matrix.repo }}
 ```
 
 ### Debugging
